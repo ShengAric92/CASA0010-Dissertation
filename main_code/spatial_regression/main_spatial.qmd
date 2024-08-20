@@ -1,0 +1,278 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+```{r}
+library('geosphere')
+library('maps')
+library('mapproj')
+#library('maptools')
+library('spatialreg')
+library('car')
+library('here')
+```
+
+```{r}
+library(sf)
+library(spdep)
+library(spatialreg)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r}
+msoa_data <- read.csv("https://github.com/ShengAric92/CASA0010_dissertation/raw/main/main_code/data_convert/Varolsori.csv")
+```
+
+```{r}
+ew_shp <- st_read(here("main_code","spatial_regression", "MSOA_EngWal_Dec_2011_Generalised_ClippedEW_0", "Middle_Layer_Super_Output_Areas_December_2011_Generalised_Clipped_Boundaries_in_England_and_Wales.shp"))
+
+
+england_shp <- ew_shp %>%
+  filter(substr(msoa11cd, 1, 1) == "E")
+
+england_data <- england_shp %>%
+  left_join(msoa_data, by = c("msoa11cd" = "MSOA11CD"))
+```
+
+```{r}
+england_data_without_geo <- st_drop_geometry(england_data)
+england_data_var <- england_data_without_geo[, 7:ncol(england_data_without_geo)]
+# Scale the variables
+england_data_var_sc <- as.data.frame(scale(england_data_var))
+
+# cbind with shapefile
+england_data_var_scall <- cbind(england_shp, england_data_var_sc)
+```
+
+```{r}
+#write.csv(england_data_var_sc, "/Users/shengaric/Desktop/scaledata.csv", row.names = FALSE)
+```
+
+```{r}
+# spatial matrix
+queen_nb <- poly2nb(england_data_var_scall, queen = TRUE)
+
+# allow zero policy
+queen_weights <- nb2listw(queen_nb, style = "W", zero.policy = TRUE)
+```
+
+OLS after VIF
+
+```{r}
+# OLS model
+
+# OLS Full model
+#ols_model <- lm(DMprev ~ Asian + Black + Mixed + White + Other + Female + Popudensity +   #                 Age17_29 + Age30_39 + Age40_49 + Age50_59 + Age60_69 + Age70_79 + Age80 +
+#                Childrenemerg + Alcohol + HighSSB + COPDprev +
+#                OBprev + IMDdecile, data = england_data_var_scall)
+
+# OLS - white - Age17_29 to mitigate multi
+#ols_model <- lm(DMprev ~ Asian + Black + Mixed + White + Other + Female + Popudensity +   #                 Age17_29 + Age30_39 + Age40_49 + Age50_59 + Age60_69 + Age70_79 + Age80 +
+#                Childrenemerg + Alcohol + HighSSB + COPDprev +
+#                OBprev + IMDdecile -
+#                White - Age17_29, data = england_data_var_scall)
+
+# VIF
+# - Age70_79 (18.166660)
+# - HighSSB (10.177017)
+# - Age60_69 (7.144406)
+# - Other (4.964254)
+# - COPDprev (4.722491)
+ols_vif <- lm(DMprev ~ Asian + Black + Mixed + White + Other + Female + Popudensity +                    Age17_29 + Age30_39 + Age40_49 + Age50_59 + Age60_69 + Age70_79 + Age80 +
+                Childrenemerg + Alcohol + HighSSB + COPDprev +
+                OBprev + IMDdecile -
+                White - Age17_29 -
+                Age70_79 - HighSSB - Age60_69 -
+                Other - COPDprev, data = england_data_var_scall)
+```
+
+```{r}
+summary(ols_vif)
+```
+
+```{r}
+AIC(ols_vif)
+vif(ols_vif)
+```
+
+OLS after Stepwise
+
+```{r}
+# Stepwise
+# - Childrenemerg (p-value 0.67000)
+# - Alcohol (p-value 0.548419)
+# - Age30_39 (p-value 0.312085)
+ols_step <- lm(DMprev ~ Asian + Black + Mixed + White + Other + Female + Popudensity +                    Age17_29 + Age30_39 + Age40_49 + Age50_59 + Age60_69 + Age70_79 + Age80 +
+                Childrenemerg + Alcohol + HighSSB + COPDprev +
+                OBprev + IMDdecile -
+                White - Age17_29 -
+                Age70_79 - HighSSB - Age60_69 -
+                Other - COPDprev -
+                Childrenemerg - Alcohol - Age30_39, data = england_data_var_scall)
+```
+
+```{r}
+summary(ols_step)
+```
+
+```{r}
+AIC(ols_step)
+```
+
+```{r}
+ols_res <- resid(ols_step)
+```
+
+```{r}
+moran.test(ols_res, queen_weights)
+```
+
+Spatial Lag
+
+```{r}
+lag_model <- lagsarlm(prevalence ~ asianr + blackr + mixedr + femaler + popudensity +
+                        Age40_49r + Age50_59r + Age80r + obprev + Imddecile, data = england_data, listw = queen_weights, zero.policy = TRUE)
+```
+
+```{r}
+summary(lag_model)
+```
+
+```{r}
+saveRDS(lag_model, file = "/Users/shengaric/Desktop/lag_model.rds")
+```
+
+```{r}
+error_model <- errorsarlm(prevalence ~ asianr + blackr + mixedr + femaler + popudensity +
+                          Age40_49r + Age50_59r + Age80r + obprev + Imddecile, 
+                          data = england_data, 
+                          listw = queen_weights, 
+                          zero.policy = TRUE)
+```
+
+```{r}
+summary(error_model)
+```
+
+```{r}
+saveRDS(lag_model, file = "/Users/shengaric/Desktop/error_model.rds")
+```
+
+```{r}
+durbin_model <- lagsarlm(prevalence ~ asianr + blackr + mixedr + femaler + popudensity +
+                         Age40_49r + Age50_59r + Age80r + obprev + Imddecile, 
+                         data = england_data, 
+                         listw = queen_weights, 
+                         type = "mixed",  # This specifies the Durbin model
+                         zero.policy = TRUE)
+```
+
+```{r}
+summary(durbin_model)
+```
+
+```{r}
+saveRDS(lag_model, file = "/Users/shengaric/Desktop/durbin_model.rds")
+```
+
+```{r}
+W <- as(england_weights, "CsparseMatrix")
+trMC <- trW(W, type="MC")
+```
+
+```{r}
+im<-impacts(lag_model, tr = trMC, R=1000)
+```
+
+```{r}
+sums<-summary(im,  zstats=T)
+```
+
+```{r}
+data.frame(sums$res)
+```
+
+```{r}
+
+```
+
+```{r}
+# 1. 提取模型残差
+lag_res <- residuals(lag_model)
+
+# 2. 计算残差的 Moran's I
+lag_moran <- moran.test(lag_res, queen_weights)
+
+# 3. 打印结果
+print(lag_moran)
+```
+
+```{r}
+# 1. 提取模型残差
+ols_res <- residuals(ols_model)
+
+# 2. 计算残差的 Moran's I
+ols_moran <- moran.test(ols_res, queen_weights)
+
+# 3. 打印结果
+print(ols_moran)
+```
+
+```{r}
+# 进行 LM 和 Robust LM 检验
+lm_tests <- lm.LMtests(ols_model, listw = queen_weights, test = c("LMerr", "RLMerr", "LMlag", "RLMlag"))
+
+# 输出检验结果
+print(lm_tests)
+
+
+```
+
+```{r}
+library(sp)
+library(sf)
+
+
+# 读取 .gal 文件
+w_knn2 <- read.gwt2nb("/Users/shengaric/Desktop/weightsone.gwt")
+listw_knn2 <- nb2listw(w_knn2, style = "W")
+```
+
+```{r}
+# 读取 GWT 文件
+w_knn2 <- read.gwt2nb("/Users/shengaric/Desktop/weightsone.gwt")
+
+# 检查对象类型
+class(w_knn2)  # 这应该输出 "nb"
+```
+
+```{r}
+# 将 nb 对象转换为 listw 对象
+# 使用 style = "W" 表示行标准化，常用于 Moran's I 计算
+listw_knn2 <- nb2listw(w_knn2, style = "W")
+```
+
+```{r}
+# 计算Moran's I
+moran_i_r <- moran.test(england_data$prevalence, england_weights)
+
+print("R中的Moran's I结果:")
+print(moran_i_r)
+```
+
+```{r}
+moran(england_data$prevalence, listw=listw_knn2,
+      n=length(england_data$prevalence), S0=Szero(listw_knn2))
+```
+
+```{r}
+moran(msoa_data$prevalence, listw=listw_knn2,
+      n=length(england_data$prevalence), S0=Szero(listw_knn2))
+```
+
+```{r}
+england_data$objectid <- england_data$objectid - 1
+```
