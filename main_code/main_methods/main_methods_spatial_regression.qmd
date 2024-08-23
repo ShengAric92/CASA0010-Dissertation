@@ -1,0 +1,422 @@
+---
+title: "Spatial Regression"
+format: html
+editor: visual
+---
+
+# 0. Import Data
+
+## 0.1 Import library
+
+```{r}
+library('geosphere')
+library('maps')
+library('mapproj')
+#library('maptools')
+library('spatialreg')
+library('car')
+library('here')
+```
+
+```{r}
+library(sf)
+library(spdep)
+library(spatialreg)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r}
+library(lmtest)
+library(tseries)
+```
+
+## 0.2 Import MSOA data and shapefile
+
+```{r}
+msoa_data <- read.csv("https://github.com/ShengAric92/CASA0010_dissertation/raw/main/main_code/data_convert/Varolsori.csv")
+```
+
+```{r}
+ew_shp <- st_read(here("main_code","main_methods", "MSOA_EngWal_Dec_2011_Generalised_ClippedEW_0", "Middle_Layer_Super_Output_Areas_December_2011_Generalised_Clipped_Boundaries_in_England_and_Wales.shp"))
+
+
+england_shp <- ew_shp %>%
+  filter(substr(msoa11cd, 1, 1) == "E")
+
+england_data <- england_shp %>%
+  left_join(msoa_data, by = c("msoa11cd" = "MSOA11CD"))
+```
+
+## 0.3 Scale data
+
+```{r}
+england_data_without_geo <- st_drop_geometry(england_data)
+england_data_var <- england_data_without_geo[, 7:ncol(england_data_without_geo)]
+# Scale the variables
+england_data_var_sc <- as.data.frame(scale(england_data_var))
+
+# cbind with shapefile
+england_data_var_scall <- cbind(england_shp, england_data_var_sc)
+
+#write.csv(england_data_var_sc, "/Users/shengaric/Desktop/scaledata.csv", row.names = FALSE)
+```
+
+## 0.4 Spatial weighted matrix
+
+```{r}
+# spatial matrix
+queen_nb <- poly2nb(england_data_var_scall, queen = TRUE)
+
+# allow zero policy
+queen_weights <- nb2listw(queen_nb, style = "W", zero.policy = TRUE)
+```
+
+# 1. Linear Regression OLS
+
+## 1.1 OLS after VIF
+
+```{r}
+# OLS model
+
+# OLS Full model
+#ols_model <- lm(DMprev ~ Asian + Black + Mixed + White + Other + Female + Popudensity +   #                 Age17_29 + Age30_39 + Age40_49 + Age50_59 + Age60_69 + Age70_79 + Age80 +
+#                Childrenemerg + Alcohol + HighSSB + COPDprev +
+#                OBprev + IMDdecile, data = england_data_var_scall)
+
+# OLS - white - Age17_29 to mitigate multi
+#ols_model <- lm(DMprev ~ Asian + Black + Mixed + White + Other + Female + Popudensity +   #                 Age17_29 + Age30_39 + Age40_49 + Age50_59 + Age60_69 + Age70_79 + Age80 +
+#                Childrenemerg + Alcohol + HighSSB + COPDprev +
+#                OBprev + IMDdecile -
+#                White - Age17_29, data = england_data_var_scall)
+
+# VIF
+# - Age70_79 (18.166660)
+# - HighSSB (10.177017)
+# - Age60_69 (7.144406)
+# - Other (4.964254)
+# - COPDprev (4.722491)
+ols_vif <- lm(DMprev ~ Asian + Black + Mixed + White + Other + Female + Popudensity +                    Age17_29 + Age30_39 + Age40_49 + Age50_59 + Age60_69 + Age70_79 + Age80 +
+                Childrenemerg + Alcohol + HighSSB + COPDprev +
+                OBprev + IMDdecile -
+                White - Age17_29 -
+                Age70_79 - HighSSB - Age60_69 -
+                Other - COPDprev, data = england_data_var_scall)
+```
+
+```{r}
+summary(ols_vif)
+```
+
+```{r}
+# Residuals
+ols_vif_res <- residuals(ols_vif)
+
+# Some stats for ols_vif
+vif(ols_vif)
+print(paste("F-statistic:", summary(ols_vif)$fstatistic[1]))
+print(paste("Log-Likelihood:", logLik(ols_vif)))
+print(paste("AIC:", AIC(ols_vif)))
+print(paste("BIC:", BIC(ols_vif)))
+
+# MSE & RMSE
+print(paste("MSE:", mean(ols_vif_res^2)))
+print(paste("RMSE:", sqrt(mean(ols_vif_res^2))))
+```
+
+```{r}
+# Independent errors: Durbin-Watson test
+dwtest(ols_vif)
+
+# Normally distributed errors: Jarque-Bera test
+jarque.bera.test(ols_vif_res)
+
+# Equal variance (Homoscedasticity): Goldfeld-Quandt test
+gqtest(ols_vif)
+```
+
+## 1.2 OLS after Stepwise
+
+```{r}
+# Stepwise
+# - Childrenemerg (p-value 0.67000)
+# - Alcohol (p-value 0.548419)
+# - Age30_39 (p-value 0.312085)
+ols_step <- lm(DMprev ~ Asian + Black + Mixed + White + Other + Female + Popudensity +                    Age17_29 + Age30_39 + Age40_49 + Age50_59 + Age60_69 + Age70_79 + Age80 +
+                Childrenemerg + Alcohol + HighSSB + COPDprev +
+                OBprev + IMDdecile -
+                White - Age17_29 -
+                Age70_79 - HighSSB - Age60_69 -
+                Other - COPDprev -
+                Childrenemerg - Alcohol - Age30_39, data = england_data_var_scall)
+```
+
+```{r}
+summary(ols_step)
+```
+
+```{r}
+# Residuals
+ols_step_res <- residuals(ols_step)
+
+# Some stats for ols_vif
+vif(ols_step)
+print(paste("F-statistic:", summary(ols_step)$fstatistic[1]))
+print(paste("Log-Likelihood:", logLik(ols_step)))
+print(paste("AIC:", AIC(ols_step)))
+print(paste("BIC:", BIC(ols_step)))
+
+# MSE & RMSE
+print(paste("MSE:", mean(ols_step_res^2)))
+print(paste("RMSE:", sqrt(mean(ols_step_res^2))))
+```
+
+```{r}
+# Independent errors: Durbin-Watson test
+dwtest(ols_step)
+
+# Normally distributed errors: Jarque-Bera test
+jarque.bera.test(ols_step_res)
+
+# Equal variance (Homoscedasticity): Goldfeld-Quandt test
+gqtest(ols_step)
+```
+
+## 1.3 OLS_stepwise Regression Diagnostics
+
+### Moran I test for Y (DMprev) and the residuals of OLS stepwise
+
+```{r}
+moran.test(england_data_var_scall$DMprev, queen_weights)
+moran.test(ols_step_res, queen_weights)
+```
+
+### LM and Robust LM tests
+
+```{r}
+LM_tests <- lm.RStests(ols_step, queen_weights, test = "all")
+
+summary(LM_tests)
+```
+
+# 2. Spatial Lag Model (SLM)
+
+## 2.1 Run and load SLM
+
+```{r}
+# Run the Spatial Lag Model
+# And save the model data
+
+#lag_model <- lagsarlm(DMprev ~ Asian + Black + Mixed + Female + Popudensity +             #                       Age40_49 + Age50_59 + Age80 + OBprev + IMDdecile,
+#                      data = england_data_var_scall,
+#                      listw = queen_weights, zero.policy = TRUE)
+
+#saveRDS(lag_model, file = "/Users/shengaric/Desktop/lag_model.rds")
+#save(lag_model, file = "/Users/shengaric/Desktop/lag_model.RData")
+
+# Load the save Spatial Lag Model
+lag_model <- readRDS(here("main_code","regression_model", "lag_model.rds"))
+```
+
+```{r}
+summary(lag_model)
+```
+
+```{r}
+AIC(lag_model)
+BIC(lag_model)
+lag_res <- residuals(lag_model)
+```
+
+## 2.2 SLM Impacts and Impact p values
+
+```{r}
+# for very large data set, we use Monte Carlo simulation
+lag_W <- as(queen_weights, "CsparseMatrix")
+lag_trMC <- trW(lag_W, type="MC")
+
+lag_impacts <- impacts(lag_model, tr = lag_trMC, R=1000)
+```
+
+```{r}
+# summary the impacts
+# also show the p-value
+summary(lag_impacts, zstats=TRUE, short=TRUE)
+```
+
+# 3. Spatial Error Model (SEM)
+
+## 3.1 Run and load SEM
+
+```{r}
+# Run the Spatial Error Model
+# And save the model data
+#error_model <- errorsarlm(DMprev ~ Asian + Black + Mixed + Female + Popudensity +         #                           Age40_49 + Age50_59 + Age80 + OBprev + IMDdecile,
+#                          data = england_data_var_scall,
+#                          listw = queen_weights, zero.policy = TRUE)
+
+#saveRDS(error_model, file = "/Users/shengaric/Desktop/error_model.rds")
+#save(error_model, file = "/Users/shengaric/Desktop/error_model.RData")
+
+error_model <- readRDS(here("main_code","regression_model", "error_model.rds"))
+```
+
+```{r}
+summary(error_model)
+```
+
+```{r}
+AIC(error_model)
+BIC(error_model)
+err_res <- residuals(error_model)
+```
+
+## 3.2 SEM eps residual function
+
+```{r}
+# extract lambda
+err_lambda <- error_model$lambda
+
+# sparce the matrix
+err_W <- as(queen_weights, "CsparseMatrix")
+
+# calculate eps, eps = (I - lambdaW)^(-1) * u
+err_I <- Diagonal(n = nrow(err_W))
+err_eps <- solve(err_I - err_lambda * err_W) %*% err_res
+err_eps_vec <- err_eps@x
+err_eps_df <- data.frame(err_eps = err_eps_vec)
+```
+
+# 4. Spatial Durbin Model (SDM)
+
+## 4.1 Run and load SDM
+
+```{r}
+# Run the Spatial Lag Model
+# And save the model data
+
+#durbin_model <- lagsarlm(DMprev ~ Asian + Black + Mixed + Female + Popudensity +          #                          Age40_49 + Age50_59 + Age80 + OBprev + IMDdecile,
+#                         data = england_data_var_scall,
+#                         listw = queen_weights,
+#                         type = "mixed",
+#                         zero.policy = TRUE)
+
+#saveRDS(durbin_model, file = "/Users/shengaric/Desktop/durbin_model.rds")
+#save(durbin_model, file = "/Users/shengaric/Desktop/durbin_model.RData")
+
+# Load the save Spatial Lag Model
+durbin_model <- readRDS(here("main_code","regression_model", "durbin_model.rds"))
+```
+
+```{r}
+summary(durbin_model)
+```
+
+```{r}
+AIC(durbin_model)
+BIC(durbin_model)
+durbin_res <- residuals(durbin_model)
+```
+
+## 4.2 SDM LR test for degradation
+
+```{r}
+# LR test for SLM and SDM
+# the loglikelihood
+logLik_lag <- logLik(lag_model)
+logLik_durbin <- logLik(durbin_model)
+
+# calculate LR stats
+LR_stat <- 2 * (logLik_durbin - logLik_lag)
+LR_stat <- as.numeric(LR_stat)
+
+# print LR stats
+print(paste("Likelihood Ratio Statistic:", LR_stat))
+
+# degree of freedom
+degfre <- length(coef(durbin_model)) - length(coef(lag_model))
+
+# calculate p-value
+p_value <- pchisq(LR_stat, df = degfre, lower.tail = FALSE)
+
+# print p-value
+print(paste("p-value:", p_value))
+```
+
+```{r}
+# LR test for SEM and SDM
+# the loglikelihood
+logLik_error <- logLik(error_model)
+logLik_durbin <- logLik(durbin_model)
+
+# calculate LR stats
+LR_stat <- 2 * (logLik_durbin - logLik_error)
+LR_stat <- as.numeric(LR_stat)
+
+# print LR stats
+print(paste("Likelihood Ratio Statistic:", LR_stat))
+
+# degree of freedom
+degfre <- length(coef(durbin_model)) - length(coef(lag_model))
+
+# calculate p-value
+p_value <- pchisq(LR_stat, df = degfre, lower.tail = FALSE)
+
+# print p-value
+print(paste("p-value:", p_value))
+```
+
+## 4.3 SDM Impact and Impact p values
+
+```{r}
+# MC Simluation
+durbin_W <- as(queen_weights, "CsparseMatrix")
+durbin_trMC <- trW(durbin_W, type="MC")
+
+# SDM impacts
+durbin_impacts <- impacts(durbin_model, tr = durbin_trMC, R=1000)
+```
+
+```{r}
+# summary impacts
+summary(durbin_impacts, zstats=TRUE, short=TRUE)
+```
+
+# 5. Residual Analysis
+
+## 5.1 Residual data frame
+
+```{r}
+# make the residuals dataframe
+residuals_df <- data.frame(
+  ols_resi = ols_step_res,
+  slm_resi = lag_res,
+  sem_resi_u = err_res,
+  sem_resi_eps = err_eps_df,
+  sdm_resi = durbin_res
+)
+```
+
+```{r}
+#write.csv(residuals_df, "/Users/shengaric/Desktop/CASA0010 Dissertation/main_code/data_convert/models_residuals.csv", row.names = FALSE)
+```
+
+## 5.2 Moran I test for each model
+
+```{r}
+# Moran I test for each model residuals
+moran.test(ols_step_res, queen_weights)
+moran.test(lag_res, queen_weights)
+moran.test(err_res, queen_weights)
+moran.test(err_eps_vec, queen_weights)
+moran.test(durbin_res, queen_weights)
+```
+
+## 5.3 MSE for each model
+
+```{r}
+mean(ols_step_res^2)
+mean(lag_res^2)
+mean(err_res^2)
+mean(durbin_res^2)
+```
