@@ -2,7 +2,10 @@
 
 ## Understanding the Spatial Association Between Risk Factors and the Prevalence of Diabetes Mellitus in England
 
-### Research Question: Which risk factors significantly influence the spatial pattern of diabetes mellitus prevalence at the MSOA level in England?
+### Research Question:
+
+Which risk factors significantly influence the spatial pattern of diabetes mellitus prevalence at the MSOA level in England?
+
 ### Research Objectives:
 
 1) To determine whether there is spatial autocorrelation in the DM prevalence in England and whether it shows patterns of clustering or dispersion.
