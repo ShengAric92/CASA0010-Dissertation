@@ -1,0 +1,80 @@
+% I may change the way this is done in a future version, 
+%  but given that some people needed it, if you need a different degree title 
+%  (e.g. Master of Science, Master in Science, Master of Arts, etc)
+%  uncomment the following 3 lines and set as appropriate (this *has* to be before \maketitle)
+% \makeatletter
+% \renewcommand {\@degree@string} {Master of Things}
+% \makeatother
+
+\title{Understanding the Spatial Association Between Risk Factors and the Prevalence of Diabetes Mellitus in England}
+\author{Sheng Hu}
+\department{Department of Something}
+\maketitle
+
+\begin{abstract} % 300 word limit
+Diabetes Mellitus (DM) is a globally prevalent noncommunicable disease, with its prevalence and incidence rising steadily in recent years. While existing research has uncovered a range of risk factors for DM, the vast majority focus on individual-level factors, overlooking the influence of spatial dimensions on DM prevalence. This study aims to explore the spatial distribution patterns of DM prevalence across England at the MSOA level using spatial regression analysis, identifying significant risk factors. The results indicate that there is significant spatial autocorrelation in the prevalence of DM in England, with the social deprivation (IMD decile), Asian population, obesity, and advancing age identified as significant contributing factors, particularly with the social deprivation and Asian population exhibiting spatial spillover effects. Additionally, although obesity prevalence was significant in the OLS model, they did not show spatial effects in the Spatial Durbin Model. By revealing the spatial patterns of diabetes, this study provides new perspectives for public health policy development in England, highlighting the need for comprehensive interventions targeting specific areas and their neighboring locations. Future research could expand spatial analysis's scale and temporal dimensions to understand better the complex interactions and the causality between DM and its risk factors.
+\end{abstract}
+
+
+\declaration
+
+
+\begin{acknowledgements}
+I greatly appreciate my supervisor, Dr. Jens Kandt, for his guidance and support over the past few months.\\
+
+I acknowledge the use of ChatGPT 4 (Open AI, \url{https://chat.openai.com}) to proofread my final draft.
+\end{acknowledgements}
+
+\setcounter{tocdepth}{2} 
+% Setting this higher means you get contents entries for
+%  more minor section headers.
+
+\tableofcontents
+\listoffigures
+\addcontentsline{toc}{chapter}{List of Figures}
+\listoftables
+\addcontentsline{toc}{chapter}{List of Tables}
+
+
+
+
+
+\begin{Acronyms}
+\addcontentsline{toc}{chapter}{List of Acronyms}
+\begin{tabbing}
+\hspace{3cm} \= \kill
+AIC \> Akaike Information Criterion \\
+BIC \> Bayesian Information Criterion/Schwarz Information Criterion \\
+COPD \> Chronic Obstructive Pulmonary Disease \\
+DM \> Diabetes Mellitus \\
+ESF \> Eigenvector Spatial Filtering \\
+GIS \> Geographic Information System \\
+GP \> General Practitioner \\
+IDF \> International Diabetes Federation \\
+IMD \> Index of Multiple Deprivation \\
+LM \> Lagrange Multiplier \\
+LR \> Likelihood Ratio \\
+LSOA \> Lower Level Super Output Area (Census geography) \\
+MHCLG \> Ministry of Housing, Communities and Local Government \\
+MSOA \> Middle Level Super Output Area (Census geography) \\
+NHS \> National Health Service \\
+NHS DPP \> NHS Diabetes Prevention Programme \\
+OHID \> Office for Health Improvement and Disparities \\
+OLS \> Ordinary Least Squares \\
+ONS \> Office for National Statistics \\
+QOF \> Quality and Outcomes Framework \\
+RMSE \> Root Mean Square Error \\
+SDM \> Spatial Durbin Model \\
+SDOH \> Social Determinants of Health \\
+SEM \> Spatial Error Model \\
+SES \> Socioeconomic Status \\
+SLM \> Spatial Lag Model \\
+SSB \> Sugar-sweetened Beverage \\
+T1DM \> Type I Diabetes Mellitus \\
+T2DM \> Type II Diabetes Mellitus \\
+UK \> United Kingdom \\
+VIF \> Variance Inflation Factor \\
+WHO \> World Health Organization \\
+\end{tabbing}
+
+\end{Acronyms}
