@@ -9,13 +9,12 @@ editor: visual
 ## 0.1 Import library
 
 ```{r}
-library('geosphere')
-library('maps')
-library('mapproj')
-#library('maptools')
-library('spatialreg')
-library('car')
-library('here')
+library(geosphere)
+library(maps)
+library(mapproj)
+#library(maptools)
+library(car)
+library(here)
 ```
 
 ```{r}
