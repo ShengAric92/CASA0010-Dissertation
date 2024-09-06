@@ -4,7 +4,7 @@
 
 ### Research Question:
 
-*Which risk factors significantly influence the spatial pattern of diabetes mellitus prevalence at the MSOA level in England?*
+***Which risk factors significantly influence the spatial pattern of diabetes mellitus prevalence at the MSOA level in England?***
 
 ### Research Objectives:
 
